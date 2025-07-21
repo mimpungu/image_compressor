@@ -1,0 +1,40 @@
+# Systèmes d'exploitation
+.DS_Store
+Thumbs.db
+
+# Fichiers de logs
+*.log
+
+# Fichiers temporaires
+*.tmp
+*.temp
+*.bak
+
+# Dossiers de build / compilation
+/build/
+/dist/
+/out/
+
+# Fichiers d'environnement
+.env
+.env.local
+.env.*.local
+
+# Node modules (si Node.js)
+node_modules/
+
+# IDE / éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Fichiers générés
+*.class
+*.exe
+*.dll
+*.so
+
+# Archives
+*.zip
+*.tar.gz

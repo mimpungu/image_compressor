@@ -5,6 +5,11 @@ from tkinter import filedialog, Tk, StringVar, IntVar, messagebox, Button, Label
 from tkinter import ttk
 from PIL import Image
 
+# Extensions prises en charge
+SUPPORTED_EXTENSIONS = (
+    '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif', '.webp', '.ico', '.tga'
+)
+
 def compress_image(input_path, output_path, quality=80, scale_factor=1.0):
     try:
         img = Image.open(input_path)
@@ -23,6 +28,11 @@ def compress_image(input_path, output_path, quality=80, scale_factor=1.0):
             img = img.convert('P', palette=Image.ADAPTIVE)
             img.save(output_path, format='PNG', optimize=True, compress_level=9)
 
+        elif img_format == 'WEBP':
+            if img.mode not in ['RGB', 'RGBA']:
+                img = img.convert('RGBA')
+            img.save(output_path, format='WEBP', quality=quality, optimize=True, method=6)
+
         else:
             shutil.copy(input_path, output_path)
 
@@ -40,7 +50,7 @@ def process_folder(folder_path, quality, scale):
     image_files = []
     for root, _, files in os.walk(folder_path):
         for file in files:
-            if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+            if file.lower().endswith(SUPPORTED_EXTENSIONS):
                 image_files.append(os.path.join(root, file))
 
     total = len(image_files)
@@ -65,7 +75,7 @@ def update_progress(percent):
     root.update_idletasks()
 
 def select_file():
-    file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png")])
+    file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png *.bmp *.gif *.tiff *.tif *.webp *.ico *.tga")])
     if file_path:
         progress_bar['value'] = 0
         progress_label_var.set("Compression en cours...")
@@ -102,7 +112,7 @@ Label(root, text="🗜️ Compresseur d'images", font=("Arial", 18, "bold")).pac
 # PARAMÈTRES
 Label(root, text="🔧 Paramètres de compression", font=("Arial", 12, "bold")).pack(pady=(5, 5))
 
-Label(root, text="Qualité JPEG (%)", font=("Arial", 10)).pack(anchor="w", padx=20)
+Label(root, text="Qualité JPEG/WEBP (%)", font=("Arial", 10)).pack(anchor="w", padx=20)
 quality_slider = ttk.Scale(root, from_=20, to=95, orient="horizontal", length=300)
 quality_slider.set(75)
 quality_slider.pack(padx=20, pady=5)
@@ -112,7 +122,7 @@ scale_slider = ttk.Scale(root, from_=30, to=100, orient="horizontal", length=300
 scale_slider.set(100)
 scale_slider.pack(padx=20, pady=5)
 
-# TITRE SECONDAIRE au-dessus des boutons
+# TITRE SECONDAIRE
 Label(root, text="🎯 Choisissez votre option de compression", font=("Arial", 13, "bold")).pack(pady=(25, 8))
 
 # BOUTONS
