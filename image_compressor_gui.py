@@ -1,8 +1,9 @@
+
 #!/usr/bin/env python3
 import os
 import shutil
 import threading
-from tkinter import filedialog, Tk, StringVar, IntVar, messagebox, Button, Label, Entry
+from tkinter import filedialog, Tk, StringVar, IntVar, messagebox, Button, Label, Entry, Toplevel
 from tkinter import ttk
 from tkinter import TclError
 from PIL import Image
@@ -72,7 +73,7 @@ def compress_image_pil(img, img_format, quality=75, target_size=TARGET_FILE_SIZE
 
 def get_output_path(input_path, target_ext):
     global output_folder
-    base_name = os.path.basename(input_path)  # Keep original filename
+    base_name = os.path.splitext(os.path.basename(input_path))[0] + f".{target_ext.lower()}"  # Use target extension
     if output_folder:
         out_dir = output_folder
     else:
@@ -222,16 +223,14 @@ def convert_to_format(folder_path, target_format, quality=75, scale_factor=1.0):
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
             if target_format.upper() == "PNG":
-                img = img.convert('RGBA')
-                img.save(output_path, format='PNG', optimize=True, compress_level=9)
+                processed_img = compress_image_pil(img, 'PNG', quality)
+                processed_img.save(output_path, format='PNG', optimize=True, compress_level=9)
             elif target_format.upper() in ['JPEG', 'JPG']:
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                img.save(output_path, format='JPEG', quality=quality, optimize=True, progressive=True, subsampling=2)
+                processed_img = compress_image_pil(img, 'JPEG', quality)
+                processed_img.save(output_path, format='JPEG', quality=min(int(quality), 95), optimize=True, progressive=True, subsampling=2)
             elif target_format.upper() == "WEBP":
-                if img.mode not in ['RGB', 'RGBA']:
-                    img = img.convert('RGBA')
-                img.save(output_path, format='WEBP', quality=quality, optimize=True, method=6)
+                processed_img = compress_image_pil(img, 'WEBP', quality)
+                processed_img.save(output_path, format='WEBP', quality=min(int(quality), 95), optimize=True, method=6)
             else:
                 shutil.copy(input_path, output_path)
         except Exception as e:
@@ -247,22 +246,17 @@ def convert_single_image(input_path, target_format, quality=75, scale_factor=1.0
         if scale_factor < 1.0:
             w, h = img.size
             img = img.resize((int(w * scale_factor), int(h * scale_factor)), Image.LANCZOS)
-        base_name = os.path.splitext(os.path.basename(input_path))[0]
         output_path = get_output_path(input_path, target_format.lower())
 
         if target_format.upper() == "PNG":
-            processed_img = img.convert('RGBA')
+            processed_img = compress_image_pil(img, 'PNG', quality)
             processed_img.save(output_path, format='PNG', optimize=True, compress_level=9)
         elif target_format.upper() in ['JPEG', 'JPG']:
-            if img.mode != 'RGB':
-                processed_img = img.convert('RGB')
-            else:
-                processed_img = img.copy()
-            processed_img.save(output_path, format='JPEG', quality=quality, optimize=True, progressive=True, subsampling=2)
+            processed_img = compress_image_pil(img, 'JPEG', quality)
+            processed_img.save(output_path, format='JPEG', quality=min(int(quality), 95), optimize=True, progressive=True, subsampling=2)
         elif target_format.upper() == "WEBP":
-            if img.mode not in ['RGB', 'RGBA']:
-                processed_img = img.convert('RGBA')
-            processed_img.save(output_path, format='WEBP', quality=quality, optimize=True, method=6)
+            processed_img = compress_image_pil(img, 'WEBP', quality)
+            processed_img.save(output_path, format='WEBP', quality=min(int(quality), 95), optimize=True, method=6)
         else:
             processed_img = img.copy()
             shutil.copy(input_path, output_path)
@@ -332,7 +326,7 @@ def convert_folder_to_webp():
 def convert_jpg_to_png():
     file_path = filedialog.askopenfilename(filetypes=[("JPEG images", "*.jpg *.jpeg")])
     if file_path:
-        convert_single_image(file_path, "PNG", scale_factor=scale_slider.get() / 100.0)
+        convert_single_image(file_path, "PNG", quality=quality_slider.get(), scale_factor=scale_slider.get() / 100.0)
 
 def convert_png_to_jpg():
     file_path = filedialog.askopenfilename(filetypes=[("PNG images", "*.png")])
