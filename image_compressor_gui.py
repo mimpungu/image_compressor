@@ -5,7 +5,6 @@ from tkinter import filedialog, Tk, StringVar, IntVar, messagebox, Button, Label
 from tkinter import ttk
 from PIL import Image
 
-# Extensions prises en charge
 SUPPORTED_EXTENSIONS = (
     '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.tif', '.webp', '.ico', '.tga'
 )
@@ -69,6 +68,48 @@ def process_folder(folder_path, quality, scale):
         compress_image(input_path, output_path, quality, scale)
         update_progress(int((i / total) * 100))
 
+def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
+    image_files = []
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            if file.lower().endswith(SUPPORTED_EXTENSIONS):
+                image_files.append(os.path.join(root, file))
+
+    total = len(image_files)
+    if total == 0:
+        messagebox.showinfo("Info", "Aucune image trouvée.")
+        update_progress(0)
+        return
+
+    output_dir = os.path.join(folder_path, f"converted_to_{target_format.lower()}")
+    os.makedirs(output_dir, exist_ok=True)
+
+    for i, input_path in enumerate(image_files, start=1):
+        try:
+            img = Image.open(input_path)
+            if scale_factor < 1.0:
+                width, height = img.size
+                img = img.resize((int(width * scale_factor), int(height * scale_factor)), Image.LANCZOS)
+            # Conversion selon format cible
+            base_name = os.path.splitext(os.path.basename(input_path))[0]
+            output_path = os.path.join(output_dir, base_name + '.' + target_format.lower())
+            if target_format.upper() == "PNG":
+                img = img.convert('RGBA')  # Pour transparence et compatibilité
+                img.save(output_path, format='PNG', optimize=True, compress_level=9)
+            elif target_format.upper() == "WEBP":
+                if img.mode not in ['RGB', 'RGBA']:
+                    img = img.convert('RGBA')
+                img.save(output_path, format='WEBP', quality=quality, optimize=True, method=6)
+            else:
+                shutil.copy(input_path, output_path)
+        except Exception as e:
+            print(f"Erreur conversion {input_path} : {e}")
+
+        update_progress(int((i / total) * 100))
+
+    messagebox.showinfo("Succès", f"Conversion vers {target_format.upper()} terminée !")
+    progress_label_var.set("")
+
 def update_progress(percent):
     progress_var.set(percent)
     progress_label_var.set(f"Progression : {percent}%")
@@ -92,13 +133,26 @@ def select_folder():
         messagebox.showinfo("Succès", "Images compressées avec succès.")
         progress_label_var.set("")
 
+def convert_folder_to_png():
+    folder_path = filedialog.askdirectory()
+    if folder_path:
+        progress_bar['value'] = 0
+        progress_label_var.set("Conversion vers PNG en cours...")
+        convert_to_format(folder_path, "PNG", scale_factor=scale_slider.get() / 100.0)
+
+def convert_folder_to_webp():
+    folder_path = filedialog.askdirectory()
+    if folder_path:
+        progress_bar['value'] = 0
+        progress_label_var.set("Conversion vers WEBP en cours...")
+        convert_to_format(folder_path, "WEBP", quality=quality_slider.get(), scale_factor=scale_slider.get() / 100.0)
+
 # Interface graphique
 root = Tk()
 root.title("🗜️ Compresseur d'images")
-root.geometry("460x500")
+root.geometry("460x560")
 root.resizable(False, False)
 
-# Icône (optionnel)
 try:
     from tkinter import PhotoImage
     icon = PhotoImage(file="icon.png")
@@ -106,10 +160,8 @@ try:
 except Exception:
     pass
 
-# TITRE PRINCIPAL
 Label(root, text="🗜️ Compresseur d'images", font=("Arial", 18, "bold")).pack(pady=(15, 10))
 
-# PARAMÈTRES
 Label(root, text="🔧 Paramètres de compression", font=("Arial", 12, "bold")).pack(pady=(5, 5))
 
 Label(root, text="Qualité JPEG/WEBP (%)", font=("Arial", 10)).pack(anchor="w", padx=20)
@@ -122,14 +174,15 @@ scale_slider = ttk.Scale(root, from_=30, to=100, orient="horizontal", length=300
 scale_slider.set(100)
 scale_slider.pack(padx=20, pady=5)
 
-# TITRE SECONDAIRE
-Label(root, text="🎯 Choisissez votre option de compression", font=("Arial", 13, "bold")).pack(pady=(25, 8))
+Label(root, text="🎯 Choisissez votre option de compression / conversion", font=("Arial", 13, "bold")).pack(pady=(25, 8))
 
-# BOUTONS
 Button(root, text="📁 Compresser une image", command=select_file, width=30).pack(pady=6)
 Button(root, text="📂 Compresser un dossier", command=select_folder, width=30).pack(pady=6)
 
-# BARRE DE PROGRESSION
+# Nouveaux boutons conversion
+Button(root, text="🖼️ Convertir un dossier vers PNG", command=convert_folder_to_png, width=30).pack(pady=6)
+Button(root, text="🌐 Convertir un dossier vers WEBP", command=convert_folder_to_webp, width=30).pack(pady=6)
+
 Label(root, text="🔄 Progression", font=("Arial", 12, "bold")).pack(pady=(25, 5))
 
 progress_var = IntVar()
@@ -140,5 +193,4 @@ progress_label_var = StringVar()
 progress_label = Label(root, textvariable=progress_label_var, font=("Arial", 10))
 progress_label.pack()
 
-# LANCEMENT
 root.mainloop()
