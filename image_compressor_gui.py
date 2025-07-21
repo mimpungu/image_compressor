@@ -267,8 +267,8 @@ def convert_single_image(input_path, target_format, quality=75, scale_factor=1.0
 
 @threaded_task
 def rename_folder_images(folder_path, base_name):
-    if not base_name:
-        messagebox.showerror("Erreur", "Veuillez entrer un nom de base pour les fichiers.")
+    if not base_name or not base_name.strip():
+        messagebox.showerror("Erreur", "Veuillez entrer un nom de base valide pour les fichiers.")
         return
 
     image_files = []
@@ -279,7 +279,7 @@ def rename_folder_images(folder_path, base_name):
 
     total = len(image_files)
     if total == 0:
-        messagebox.showinfo("Info", "Aucune image trouvée.")
+        messagebox.showinfo("Info", "Aucune image trouvée dans le dossier sélectionné.")
         update_progress(0)
         enable_ui()
         return
@@ -293,15 +293,17 @@ def rename_folder_images(folder_path, base_name):
             img_format = img.format.upper() if img.format else 'JPEG'
             compressed_img = compress_image_pil(img, img_format, quality_slider.get())
 
-            rel_path = os.path.relpath(input_path, folder_path)
-            output_name = f"{base_name}-{i}.{img_format.lower()}"
-            output_path = os.path.join(output_dir, os.path.dirname(rel_path), output_name)
+            rel_path = os.path.relpath(os.path.dirname(input_path), folder_path)
+            output_name = f"{base_name.strip()}-{i}.{img_format.lower()}"
+            output_path = os.path.join(output_dir, rel_path, output_name)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             compressed_img.save(output_path)
+            print(f"Renommé et compressé : {output_path}")
         except Exception as e:
             print(f"Erreur renommage/compression {input_path} : {e}")
+            messagebox.showwarning("Avertissement", f"Erreur sur {os.path.basename(input_path)} : {e}")
         update_progress(int((i / total) * 100))
-    messagebox.showinfo("Succès", f"Renommage et compression terminés avec succès")
+    messagebox.showinfo("Succès", f"Renommage et compression terminés avec succès ({total} images traitées)")
 
 def select_file():
     file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png *.bmp *.gif *.tiff *.tif *.webp *.ico *.tga")])
@@ -344,21 +346,27 @@ def choose_output_folder():
         output_folder_var.set("Utiliser le dossier 'compressed'")
 
 def rename_images_dialog():
-    folder_path = filedialog.askdirectory()
+    folder_path = filedialog.askdirectory(title="Sélectionnez le dossier contenant les images")
     if not folder_path:
         return
 
     dialog = Toplevel(root)
     dialog.title("Renommer les images")
-    dialog.geometry("300x150")
+    dialog.geometry("350x200")
     dialog.resizable(False, False)
+    dialog.transient(root)  # Make dialog modal relative to main window
+    dialog.grab_set()  # Ensure dialog stays on top and blocks main window
 
-    Label(dialog, text="Entrez le nom de base pour les fichiers :", font=("Arial", 10)).pack(pady=10)
+    Label(dialog, text="Entrez le nom de base pour les fichiers (ex. 'sommeil') :", font=("Arial", 10)).pack(pady=10)
     base_name_entry = Entry(dialog, width=30)
-    base_name_entry.pack(pady=5)
+    base_name_entry.pack(pady=10)
+    base_name_entry.focus_set()  # Set focus to entry field
 
     def on_submit():
         base_name = base_name_entry.get().strip()
+        if not base_name:
+            messagebox.showerror("Erreur", "Veuillez entrer un nom de base valide.", parent=dialog)
+            return
         dialog.destroy()
         rename_folder_images(folder_path, base_name)
 
@@ -366,9 +374,9 @@ def rename_images_dialog():
         dialog.destroy()
 
     btn_frame = ttk.Frame(dialog)
-    btn_frame.pack(pady=10)
-    Button(btn_frame, text="Valider", command=on_submit, width=10).pack(side="left", padx=10)
-    Button(btn_frame, text="Annuler", command=on_cancel, width=10).pack(side="right", padx=10)
+    btn_frame.pack(pady=20)
+    Button(btn_frame, text="Valider", command=on_submit, width=12).pack(side="left", padx=10)
+    Button(btn_frame, text="Annuler", command=on_cancel, width=12).pack(side="right", padx=10)
 
 # --- Interface graphique ---
 root = Tk()
