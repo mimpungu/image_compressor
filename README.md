@@ -43,3 +43,14 @@ Installe les modules requis via pip :
 ```bash
 pip install pillow py2app
 
+## Compiler via le terminal 
+
+- python3 setup.py py2app
+./dist/ImageCompressor.app/Contents/MacOS/ImageCompressor
+
+
+## Compiler via le double-clic 
+- python3 setup.py py2app
+
+- Dans le Finder, ouvre le dossier dist et double-clique sur ImageCompressor.app pour lancer l’application.
+
