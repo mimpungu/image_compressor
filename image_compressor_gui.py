@@ -15,6 +15,9 @@ output_folder = None  # Dossier de sortie choisi par l'utilisateur, None = dossi
 
 def compress_image_pil(img, img_format, quality=80):
     """Renvoie une image PIL compressée selon le format, sans sauvegarder sur disque."""
+    # Validate quality parameter
+    quality = max(0, min(int(quality), 100))  # Ensure quality is between 0 and 100
+
     if img_format in ['JPEG', 'JPG']:
         if img.mode != 'RGB':
             img = img.convert('RGB')
@@ -46,14 +49,13 @@ def compress_image_pil(img, img_format, quality=80):
 
 def get_output_path(input_path, target_ext):
     global output_folder
-    base_name = os.path.splitext(os.path.basename(input_path))[0]
-    output_name = f"{base_name}_compressed.{target_ext.lower()}"  # Append "_compressed" to avoid overwriting
+    base_name = os.path.basename(input_path)  # Keep original filename, including extension
     if output_folder:
         out_dir = output_folder
     else:
-        out_dir = os.path.join(os.path.dirname(input_path), "compressor")
+        out_dir = os.path.join(os.path.dirname(input_path), "compressed")
     os.makedirs(out_dir, exist_ok=True)
-    return os.path.join(out_dir, output_name)
+    return os.path.join(out_dir, base_name)
 
 def threaded_task(func):
     def wrapper(*args, **kwargs):
@@ -116,7 +118,7 @@ def process_file(file_path, quality, scale):
     update_progress(0)
     try:
         img = Image.open(file_path)
-        img_format = img.format.upper()
+        img_format = img.format.upper() if img.format else 'JPEG'  # Fallback to JPEG if format is None
 
         if scale < 1.0:
             w, h = img.size
@@ -125,7 +127,7 @@ def process_file(file_path, quality, scale):
         compressed_img = compress_image_pil(img, img_format, quality)
         output_path = get_output_path(file_path, img_format.lower())
         compressed_img.save(output_path)
-        messagebox.showinfo("Succès", f"Image compressée sauvegardée dans :\n{output_path}")
+        messagebox.showinfo("Succès", "Image compressée avec succès")
         update_progress(100)
     except Exception as e:
         messagebox.showerror("Erreur", f"Erreur compression : {e}")
@@ -145,28 +147,26 @@ def process_folder(folder_path, quality, scale):
         enable_ui()
         return
 
-    output_dir = output_folder if output_folder else os.path.join(folder_path, "compressor")
+    output_dir = output_folder if output_folder else os.path.join(folder_path, "compressed")
     os.makedirs(output_dir, exist_ok=True)
 
     for i, input_path in enumerate(image_files, start=1):
         try:
             img = Image.open(input_path)
-            img_format = img.format.upper()
+            img_format = img.format.upper() if img.format else 'JPEG'  # Fallback to JPEG
             if scale < 1.0:
                 w, h = img.size
                 img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
             compressed_img = compress_image_pil(img, img_format, quality)
 
             rel_path = os.path.relpath(input_path, folder_path)
-            base_name = os.path.splitext(os.path.basename(input_path))[0]
-            output_name = f"{base_name}_compressed.{img_format.lower()}"
-            output_path = os.path.join(output_dir, rel_path[:-len(os.path.basename(input_path))] + output_name)
+            output_path = os.path.join(output_dir, rel_path)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             compressed_img.save(output_path)
         except Exception as e:
             print(f"Erreur compression {input_path} : {e}")
         update_progress(int((i / total) * 100))
-    messagebox.showinfo("Succès", f"Compression du dossier terminée.\nFichiers enregistrés dans :\n{output_dir}")
+    messagebox.showinfo("Succès", "Compression du dossier terminée avec succès")
 
 @threaded_task
 def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
@@ -183,7 +183,7 @@ def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
         enable_ui()
         return
 
-    output_dir = output_folder if output_folder else os.path.join(folder_path, "compressor")
+    output_dir = output_folder if output_folder else os.path.join(folder_path, "compressed")
     os.makedirs(output_dir, exist_ok=True)
 
     for i, input_path in enumerate(image_files, start=1):
@@ -193,14 +193,18 @@ def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
                 w, h = img.size
                 img = img.resize((int(w * scale_factor), int(h * scale_factor)), Image.LANCZOS)
             base_name = os.path.splitext(os.path.basename(input_path))[0]
-            output_name = f"{base_name}_compressed.{target_format.lower()}"
+            output_name = f"{base_name}.{target_format.lower()}"  # Use target format extension
             rel_path = os.path.relpath(input_path, folder_path)
-            output_path = os.path.join(output_dir, rel_path[:-len(os.path.basename(input_path))] + output_name)
+            output_path = os.path.join(output_dir, os.path.dirname(rel_path), output_name)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
             if target_format.upper() == "PNG":
                 img = img.convert('RGBA')
                 img.save(output_path, format='PNG', optimize=True, compress_level=9)
+            elif target_format.upper() in ['JPEG', 'JPG']:
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(output_path, format='JPEG', quality=quality, optimize=True, progressive=True, subsampling=2)
             elif target_format.upper() == "WEBP":
                 if img.mode not in ['RGB', 'RGBA']:
                     img = img.convert('RGBA')
@@ -211,8 +215,7 @@ def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
             print(f"Erreur conversion {input_path} : {e}")
         update_progress(int((i / total) * 100))
 
-    messagebox.showinfo("Succès", f"Conversion vers {target_format.upper()} terminée !")
-    progress_label_var.set("")
+    messagebox.showinfo("Succès", f"Conversion vers {target_format.upper()} terminée avec succès")
 
 @threaded_task
 def convert_single_image(input_path, target_format, quality=80, scale_factor=1.0):
@@ -233,11 +236,15 @@ def convert_single_image(input_path, target_format, quality=80, scale_factor=1.0
             else:
                 processed_img = img.copy()
             processed_img.save(output_path, format='JPEG', quality=quality, optimize=True, progressive=True, subsampling=2)
+        elif target_format.upper() == "WEBP":
+            if img.mode not in ['RGB', 'RGBA']:
+                processed_img = img.convert('RGBA')
+            processed_img.save(output_path, format='WEBP', quality=quality, optimize=True, method=6)
         else:
             processed_img = img.copy()
             shutil.copy(input_path, output_path)
 
-        messagebox.showinfo("Succès", f"Image convertie sauvegardée dans :\n{output_path}")
+        messagebox.showinfo("Succès", f"Image convertie en {target_format.upper()} avec succès")
     except Exception as e:
         messagebox.showerror("Erreur", f"Erreur conversion : {e}")
 
@@ -279,7 +286,7 @@ def choose_output_folder():
         output_folder_var.set(output_folder)
     else:
         output_folder = None
-        output_folder_var.set("Utiliser le dossier 'compressor'")
+        output_folder_var.set("Utiliser le dossier 'compressed'")
 
 # --- Interface graphique ---
 root = Tk()
@@ -312,7 +319,7 @@ scale_slider.pack(padx=20, pady=5)
 
 Label(root, text="📂 Choix dossier de sortie", font=("Arial", 12, "bold")).pack(pady=(15, 3))
 
-output_folder_var = StringVar(value="Utiliser le dossier 'compressor'")
+output_folder_var = StringVar(value="Utiliser le dossier 'compressed'")
 output_folder_label = Label(root, textvariable=output_folder_var, fg="blue")
 output_folder_label.pack()
 
