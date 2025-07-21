@@ -90,11 +90,10 @@ def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
             if scale_factor < 1.0:
                 width, height = img.size
                 img = img.resize((int(width * scale_factor), int(height * scale_factor)), Image.LANCZOS)
-            # Conversion selon format cible
             base_name = os.path.splitext(os.path.basename(input_path))[0]
             output_path = os.path.join(output_dir, base_name + '.' + target_format.lower())
             if target_format.upper() == "PNG":
-                img = img.convert('RGBA')  # Pour transparence et compatibilité
+                img = img.convert('RGBA')
                 img.save(output_path, format='PNG', optimize=True, compress_level=9)
             elif target_format.upper() == "WEBP":
                 if img.mode not in ['RGB', 'RGBA']:
@@ -109,6 +108,29 @@ def convert_to_format(folder_path, target_format, quality=80, scale_factor=1.0):
 
     messagebox.showinfo("Succès", f"Conversion vers {target_format.upper()} terminée !")
     progress_label_var.set("")
+
+def convert_single_image(input_path, target_format, quality=80, scale_factor=1.0):
+    try:
+        img = Image.open(input_path)
+        if scale_factor < 1.0:
+            width, height = img.size
+            img = img.resize((int(width * scale_factor), int(height * scale_factor)), Image.LANCZOS)
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+        output_dir = os.path.join(os.path.dirname(input_path), f"converted_single_{target_format.lower()}")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, base_name + '.' + target_format.lower())
+        if target_format.upper() == "PNG":
+            img = img.convert('RGBA')
+            img.save(output_path, format='PNG', optimize=True, compress_level=9)
+        elif target_format.upper() in ['JPEG', 'JPG']:
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.save(output_path, format='JPEG', quality=quality, optimize=True, progressive=True, subsampling=2)
+        else:
+            shutil.copy(input_path, output_path)
+        messagebox.showinfo("Succès", f"Image convertie en {target_format.upper()} et sauvegardée dans:\n{output_path}")
+    except Exception as e:
+        messagebox.showerror("Erreur", f"Erreur conversion {input_path} : {e}")
 
 def update_progress(percent):
     progress_var.set(percent)
@@ -147,10 +169,22 @@ def convert_folder_to_webp():
         progress_label_var.set("Conversion vers WEBP en cours...")
         convert_to_format(folder_path, "WEBP", quality=quality_slider.get(), scale_factor=scale_slider.get() / 100.0)
 
+def convert_jpg_to_png():
+    file_path = filedialog.askopenfilename(filetypes=[("JPEG images", "*.jpg *.jpeg")])
+    if file_path:
+        progress_label_var.set("Conversion JPG/JPEG vers PNG en cours...")
+        convert_single_image(file_path, "PNG", scale_factor=scale_slider.get() / 100.0)
+
+def convert_png_to_jpg():
+    file_path = filedialog.askopenfilename(filetypes=[("PNG images", "*.png")])
+    if file_path:
+        progress_label_var.set("Conversion PNG vers JPG en cours...")
+        convert_single_image(file_path, "JPEG", quality=quality_slider.get(), scale_factor=scale_slider.get() / 100.0)
+
 # Interface graphique
 root = Tk()
 root.title("🗜️ Compresseur d'images")
-root.geometry("460x560")
+root.geometry("460x600")
 root.resizable(False, False)
 
 try:
@@ -179,9 +213,11 @@ Label(root, text="🎯 Choisissez votre option de compression / conversion", fon
 Button(root, text="📁 Compresser une image", command=select_file, width=30).pack(pady=6)
 Button(root, text="📂 Compresser un dossier", command=select_folder, width=30).pack(pady=6)
 
-# Nouveaux boutons conversion
 Button(root, text="🖼️ Convertir un dossier vers PNG", command=convert_folder_to_png, width=30).pack(pady=6)
 Button(root, text="🌐 Convertir un dossier vers WEBP", command=convert_folder_to_webp, width=30).pack(pady=6)
+
+Button(root, text="🖼️ Convertir une image JPG/JPEG vers PNG", command=convert_jpg_to_png, width=30).pack(pady=6)
+Button(root, text="🖼️ Convertir une image PNG vers JPG/JPEG", command=convert_png_to_jpg, width=30).pack(pady=6)
 
 Label(root, text="🔄 Progression", font=("Arial", 12, "bold")).pack(pady=(25, 5))
 
